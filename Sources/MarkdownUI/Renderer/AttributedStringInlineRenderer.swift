@@ -51,6 +51,8 @@ private struct AttributedStringInlineRenderer {
       self.renderCode(content)
     case .html(let content):
       self.renderHTML(content)
+    case .underline(let children):
+      self.renderStrikethrough(children: children)
     case .emphasis(let children):
       self.renderEmphasis(children: children)
     case .strong(let children):

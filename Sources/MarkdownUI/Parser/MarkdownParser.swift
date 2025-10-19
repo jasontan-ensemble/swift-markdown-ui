@@ -62,11 +62,11 @@ extension BlockNode {
     case .htmlBlock:
       self = .htmlBlock(content: unsafeNode.literal ?? "")
     case .paragraph:
-      self = .paragraph(content: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:)))
+      self = .paragraph(content: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children))
     case .heading:
       self = .heading(
         level: unsafeNode.headingLevel,
-        content: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:))
+        content: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children)
       )
     case .table:
       self = .table(
@@ -135,25 +135,55 @@ extension InlineNode {
     case .html:
       self = .html(unsafeNode.literal ?? "")
     case .emphasis:
-      self = .emphasis(children: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:)))
+      self = .emphasis(children: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children))
     case .strong:
-      self = .strong(children: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:)))
+      self = .strong(children: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children))
     case .strikethrough:
-      self = .strikethrough(children: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:)))
+      self = .strikethrough(children: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children))
     case .link:
       self = .link(
         destination: unsafeNode.url ?? "",
-        children: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:))
+        children: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children)
       )
     case .image:
       self = .image(
         source: unsafeNode.url ?? "",
-        children: unsafeNode.children.compactMap(InlineNode.init(unsafeNode:))
+        children: InlineNode.parseNodeSequenceToInlineNode(unsafeNode.children)
       )
     default:
       assertionFailure("Unhandled node type '\(unsafeNode.nodeType)' in InlineNode.")
       return nil
     }
+  }
+
+  fileprivate static func parseNodeSequenceToInlineNode(_ sequence: UnsafeNodeSequence) -> [InlineNode] {
+    var inlineNodes: [InlineNode] = []
+    var hasUnderlineItemStarted: Bool = false
+    var currentUnderlineItem: [InlineNode] = []
+
+    for node in sequence {
+      guard !hasUnderlineItemStarted else {
+        if node.isUnderlineItem {
+          inlineNodes.append(.underline(children: currentUnderlineItem))
+          hasUnderlineItemStarted = false
+          currentUnderlineItem = []
+          continue
+        }
+
+        currentUnderlineItem = parseNodeSequenceToInlineNode(node.children)
+        continue
+      }
+
+      guard node.isUnderlineItem else {
+        hasUnderlineItemStarted = true
+        continue
+      }
+
+      guard let inlineNode = InlineNode(unsafeNode: node) else { continue }
+      inlineNodes.append(inlineNode)
+    }
+
+    return inlineNodes
   }
 }
 
@@ -178,6 +208,11 @@ extension UnsafeNode {
 
   fileprivate var url: String? {
     cmark_node_get_url(self).map(String.init(cString:))
+  }
+
+  fileprivate var isUnderlineItem: Bool {
+    guard nodeType == .html else { return false }
+    return literal == "<u>" || literal == "</u>"
   }
 
   fileprivate var isTaskListItem: Bool {
@@ -390,6 +425,10 @@ extension UnsafeNode {
     case .html(let content):
       guard let node = cmark_node_new(CMARK_NODE_HTML_INLINE) else { return nil }
       cmark_node_set_literal(node, content)
+      return node
+    case .underline(children: let children):
+      guard let node = cmark_node_new(CMARK_NODE_HTML_INLINE) else { return nil }
+      children.compactMap(UnsafeNode.make).forEach { cmark_node_append_child(node, $0) }
       return node
     case .emphasis(let children):
       guard let node = cmark_node_new(CMARK_NODE_EMPH) else { return nil }
