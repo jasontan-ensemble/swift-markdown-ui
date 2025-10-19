@@ -174,7 +174,7 @@ extension InlineNode {
         continue
       }
 
-      guard node.isUnderlineItem else {
+      guard !node.isUnderlineItem else {
         hasUnderlineItemStarted = true
         continue
       }
