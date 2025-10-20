@@ -170,7 +170,9 @@ extension InlineNode {
           continue
         }
 
-        currentUnderlineItem = parseNodeSequenceToInlineNode(node.children)
+        if let newLineNode = InlineNode(unsafeNode: node) {
+          currentUnderlineItem.append(newLineNode)
+        }
         continue
       }
 
