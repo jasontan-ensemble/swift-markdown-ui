@@ -115,6 +115,9 @@ public struct Theme: Sendable {
   /// The strikethrough style.
   public var strikethrough: TextStyle = StrikethroughStyle(.single)
 
+  /// The underline style
+  public var underline: TextStyle = UnderlineStyle(.single)
+
   /// The link style.
   public var link: TextStyle = EmptyTextStyle()
 
